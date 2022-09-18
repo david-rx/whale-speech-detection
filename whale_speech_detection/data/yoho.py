@@ -34,8 +34,7 @@ class Yoho:
         smoothed_events: List[Event] = []
 
         for event_type in self.event_types:
-            print(event_type)
-            print('starting')
+            print("starting", event_type)
             typed_events = [e for e in events if e.event_type == event_type]
             typed_events.sort(key=lambda x: x.event_start)
             # max_typed_silence = self.type_params[event_type].max_silence
@@ -68,7 +67,7 @@ class Yoho:
         print('smoothed!')
         num_divisions = math.ceil(self.total_length / self.window_length)
         labels = np.zeros((num_divisions, len(self.event_types) * 3),)
-        
+
         for event in events:
 
             start_bin = int(event.event_start / self.window_length)

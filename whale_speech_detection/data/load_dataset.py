@@ -33,7 +33,7 @@ class CallDataset(Dataset):
         self.yoho_chunks = torch.from_numpy(np.stack(yoho_chunks))
         self.yoho_labels = torch.from_numpy(yoho_labels)
         assert len(yoho_chunks) == len(yoho_labels)
-    
+
     def __len__(self):
         return len(self.yoho_chunks) #what is a single example? Treat as NER (?)
 
@@ -158,7 +158,7 @@ def _time_to_sample_number(times: List[float], file_numbers: List[int], wav_arra
         cum_wav_file_lengths.append(cum_wav_file_length_i)
     for time, sr, file_number in zip(times, sampling_rates, file_numbers):
         sample_numbers.append(cum_wav_file_lengths[file_number] + int(time))
-    return sample_numbers    
+    return sample_numbers
 
 
 def _build_dataset(wav_arrays: np.ndarray, sampling_rates: List[float], all_call_labels: List[CallLabels], wav_file_names: List[str]) -> CallDataset:
@@ -192,6 +192,6 @@ def _build_dataset(wav_arrays: np.ndarray, sampling_rates: List[float], all_call
     return call_dataset
 
 
-    
+
 
 

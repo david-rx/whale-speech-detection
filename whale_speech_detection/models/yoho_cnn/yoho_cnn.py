@@ -25,6 +25,11 @@ LAYER_DEFS = [
 
 class YohoCnn(Module):
 
+    """
+    TODO: Work in Progress!! This is copied from
+    the YOHO paper and is unlikely to work as is!!
+    """
+
     def __init__(self) -> None:
         super().__init__()
         self.layers = self._build_layers()
@@ -47,4 +52,3 @@ class YohoCnn(Module):
         return self.layers(input)
 
 
-    

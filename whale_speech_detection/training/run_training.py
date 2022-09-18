@@ -17,14 +17,14 @@ def train() -> None:
     model = YohoCNN()
     # model = torch.nn.Module()
     train_dataloader = DataLoader(train_dataset, BATCH_SIZE)
-    optimizer = Adam(model.parameters, lr=10^-5)
+    optimizer = AdamW(model.parameters, lr=5e-5)
     for batch in train_dataloader:
         yoho_inputs, yoho_labels = batch
         loss = model(yoho_inputs, yoho_labels)
         loss.backwards()
         optimizer.step()
 
-    
+
 
 if __name__ == '__main__':
     # p = configargparse.ArgParser()
