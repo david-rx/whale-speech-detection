@@ -1,6 +1,6 @@
 import configargparse
 from torch.utils.data import DataLoader
-from torch.optim.adam import Adam
+from torch.optim.adam import AdamW
 import torch
 
 from whale_speech_detection.models.yoho_cnn.yoho_cnn import YohoCnn
@@ -12,6 +12,9 @@ EVAL_DATA_PATH = '/Users/david/downloads/AcousticTrends_BlueFinLibrary/RossSea20
 BATCH_SIZE = 16
 
 def train() -> None:
+    """
+    WIP! Loop not optimized, run or tested.
+    """
     train_dataset = load_dataset(DATA_PATH, 'train')
     eval_dataset = load_dataset(DATA_PATH, 'eval')
     model = YohoCNN()
