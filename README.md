@@ -8,21 +8,19 @@ Uses data from "An open access dataset for developing automated detectors of Ant
 
 Hypothesis is to use the YOHO algorithm https://www.mdpi.com/2076-3417/12/7/3293 to classify audio segments with presence of whale call types.
 
-The first audio features will be will be mel-spectrogram and will be processed by a CNN or ViT.
+The first audio features will be will be mel-spectrogram feeding a CNN or ViT.
 
-After the prototype, the plan will be to train a self-supervised model based on https://ai.facebook.com/research/publications/conformer-based-self-supervised-learning-for-non-speech-audio-tasks/ or HuBERT on the larger dataset of unlabeled audio.
-This will become the base of the supervised training and hopefully serve as a foundation model
+After benchmarking this model, the plan is to train self-supervised model based on this conformer + Wav2vec 2.0 model https://ai.facebook.com/research/publications/conformer-based-self-supervised-learning-for-non-speech-audio-tasks/ or based on HuBERT on the larger dataset of unlabeled audio.
+This will become the base of the supervised training, then hopefully serve as a foundation model for other marine audio tasks.
 
 ## Tasks
 
 ### TO DO:
-CNN setup (in progress)
+CNN setup and training (in progress)
 
-ViT setup
+ViT setup and training
 
-HuBERT modification (design needed)
-
-HuBERT setup
+Self-supervised base model setup and training
 
 ### Completed:
 Parse Antartic Whale Dataset
