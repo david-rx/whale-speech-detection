@@ -1,7 +1,7 @@
+import librosa
 from typing import Tuple
 import random
 from random import sample
-from turtle import end_fill
 import numpy as np
 from torch.utils.data import Dataset
 import torch
@@ -12,9 +12,12 @@ import os
 from itertools import chain
 import pandas as pd
 from datetime import datetime
+import logging
+from whale_speech_detection.data.utils import get_log_melspectrogram
 
 from whale_speech_detection.data.yoho import Event, Yoho
 
+logging.basicConfig()
 
 BEGIN_FILE = 3
 END_FILE = 4
@@ -23,25 +26,29 @@ END_TIME = 6
 BEGIN_SAMPLE = 7
 END_SAMPLE = 8
 
-WINDOW_LENGTH = 0.3 #seconds
+WINDOW_LENGTH = 6 #seconds -- SR is low (1000)
 
 WAVFILENAME = 'wavFileName'
 
+TRAIN_SPLIT = 0.8
+
 class CallDataset(Dataset):
 
-    def __init__(self, yoho_chunks: List[np.ndarray], yoho_labels) -> None:
-        self.yoho_chunks = torch.from_numpy(np.stack(yoho_chunks))
+    def __init__(self, yoho_chunks: List[np.ndarray], yoho_labels, mel_spectrogram = True, sampling_rate = 16000) -> None:
+        if mel_spectrogram:
+            self.yoho_chunks = torch.from_numpy(np.stack([get_log_melspectrogram(chunk, sr = sampling_rate) for chunk in yoho_chunks]))
+        else:
+            self.yoho_chunks = torch.from_numpy(np.stack(yoho_chunks))
         self.yoho_labels = torch.from_numpy(yoho_labels)
         assert len(yoho_chunks) == len(yoho_labels)
 
+
     def __len__(self):
-        return len(self.yoho_chunks) #what is a single example? Treat as NER (?)
+        return len(self.yoho_chunks)
 
     def __getitem__(self, idx):
         return self.yoho_chunks[idx], self.yoho_labels[idx]
 
-    def _chunks_to_mfcc(self):
-        pass
 
 @dataclass
 class CallLabels:
@@ -57,7 +64,7 @@ def load_file_to_labels(filename, selected_wav_files: List[str], offsets) -> Cal
     Processes a single file of a specific label type and returns the corresponding labels
     """
     label_type = filename.split('.')[1]
-    print(filename)
+    logging.info(filename)
     call_starts = []
     call_ends = []
     file_starts = []
@@ -84,6 +91,8 @@ def _date_to_sample(wav_file_name: str, sampling_rate: float, sample_time: str):
     wav_file_start_date_str = f'{wav_file_name[4:6]}/{wav_file_name[6:8]}/{wav_file_name[0:4]} {wav_file_name[9:11]}:{wav_file_name[11:13]}:{wav_file_name[13:15]}'
     wav_file_start_date = datetime.strptime(wav_file_start_date_str, '%m/%d/%Y %H:%M:%S')
     print(sample_time)
+
+    print("sampling rate is", sampling_rate)
     # sample_time_date = datetime.strptime(sample_time, '%Y/%m/%d  %H:%M:%S')
     return int((sample_time - wav_file_start_date).total_seconds() * sampling_rate)
 
@@ -116,33 +125,40 @@ def get_train_eval_splits(wav_file_names: List[str], split: str, metadata_path: 
     relevant_files: List[str] = []
     for num, row in metadata_df.iterrows(): #very small df
         wav_file_name = row['wavFileName']
-        relevant_files.append(wav_file_name)
-    print(len(relevant_files))
-    return relevant_files[0 : int(len(relevant_files) / 10)]
+        if wav_file_name in wav_file_names:
+            relevant_files.append(wav_file_name)
+    return relevant_files[0:4]
+    logging.info(len(relevant_files))
+    if split == "eval":
+        return relevant_files[0 : int(len(relevant_files) * TRAIN_SPLIT)]
+    elif split == "train":
+        return relevant_files[int(len(relevant_files) * TRAIN_SPLIT) :]
+
+
     # return random.choice(wav_file_names)
 
 
-def load_dataset(site_dir: str, split: str) -> None:
+def load_dataset(site_dir: str, split: str, raw_audio: bool = False) -> CallDataset:
     """
     Loads dataset from WAV files and labels
     """
     wav_dir = os.path.join(site_dir, 'wav')
-    wav_file_names = os.listdir(wav_dir)
+    wav_file_names = os.listdir(wav_dir)[0:10]
     metadata_path = [m for m in os.listdir(site_dir) if m.startswith('annotation_metadata')][0]
-    wav_array_tuples = [sf.read(os.path.join(wav_dir, wav_file_name)) for wav_file_name in wav_file_names]
+    wav_array_tuples = [librosa.load(os.path.join(wav_dir, wav_file_name), sr=16000) for wav_file_name in wav_file_names]
     wav_arrays = [wat[0] for wat in wav_array_tuples]
     sampling_rates = [wat[1] for wat in wav_array_tuples]
     selected_wav_files = get_train_eval_splits(wav_file_names, split, os.path.join(site_dir, metadata_path))
     wav_arrays, offsets = _filter_unlabeled(wav_file_names=wav_file_names, wav_arrays=wav_arrays,
         metadata_path=os.path.join(site_dir, metadata_path), sampling_rate=sampling_rates[0], selected_wav_files=selected_wav_files)
-    print('files selected: ' , len(wav_arrays))
+    logging.info('files selected: ' , len(wav_arrays))
     all_call_labels = []
     for file in os.listdir(site_dir):
         if not file.endswith('.txt'):
             continue
         call_labels = load_file_to_labels(os.path.join(site_dir, file), selected_wav_files, offsets)
         all_call_labels.append(call_labels)
-    return _build_dataset(wav_arrays, sampling_rates, all_call_labels, list(selected_wav_files))
+    return _build_dataset(wav_arrays, sampling_rates, all_call_labels, list(selected_wav_files), raw_audio=raw_audio)
 
 def _time_to_sample_number(times: List[float], file_numbers: List[int], wav_arrays: np.ndarray,
     sampling_rates: List[float]):
@@ -161,9 +177,10 @@ def _time_to_sample_number(times: List[float], file_numbers: List[int], wav_arra
     return sample_numbers
 
 
-def _build_dataset(wav_arrays: np.ndarray, sampling_rates: List[float], all_call_labels: List[CallLabels], wav_file_names: List[str]) -> CallDataset:
+def _build_dataset(wav_arrays: np.ndarray, sampling_rates: List[float], all_call_labels: List[CallLabels],
+    wav_file_names: List[str], raw_audio: bool) -> CallDataset:
     """
-    Constructs the dataset
+    Constructs the CallDataset from the audio and labeled events.
     """
     starts = [start for call_labels in all_call_labels for start in call_labels.call_starts]
     ends = [end for call_labels in all_call_labels for end in call_labels.call_ends]
@@ -171,24 +188,29 @@ def _build_dataset(wav_arrays: np.ndarray, sampling_rates: List[float], all_call
     file_starts = [wav_file_names.index(fs) for call_labels in all_call_labels for fs in call_labels.file_starts]
     file_ends = [wav_file_names.index(fe) for call_labels in all_call_labels for fe in call_labels.file_starts]
     types = [t for call_labels in all_call_labels for t in call_labels.call_types]
-    print('running time to sample number')
+    logging.info('running time to sample number')
     sample_starts = _time_to_sample_number(starts, file_starts, wav_arrays, sampling_rates)
     sample_ends = _time_to_sample_number(ends, file_ends, wav_arrays, sampling_rates)
-    print('finished time to sample number')
+    logging.info('finished time to sample number')
+    # print(wav_arrays[0])
+    print(wav_arrays[0].shape)
     samples = list(chain.from_iterable(wav_arrays))
-    print('samples len: ', len(samples))
-    print(type(samples[0]))
+    print("sample shape: ", samples[0].shape)
+    # samples = wav_arrays
+    logging.info('samples len: %s', len(samples))
+    logging.info("type of sample 0: %s", type(samples[0]))
     full_wav_array = np.asarray(samples)
-    print('finished making wav array')
+    logging.info('finished making wav array')
     events = [Event(event_type=types[i], event_start=sample_starts[i], event_end=sample_ends[i]) for i in range(len(starts))]
-    print('making yoho')
+    print("num events: ", len(events))
+    logging.info('making yoho object')
     yoho = Yoho(window_length=sampling_rates[0] * WINDOW_LENGTH, event_types=set(types), total_length=full_wav_array.shape[0])
-    print('made yoho')
+    logging.info('made yoho object')
     yoho_labels = yoho.get_yoho_labels(events)
-    print('yoohoo!')
+    logging.info('Got YOHO labels, and full audio array!')
     #yoohoo! got yoho labels and full audio array!s
     yoho_windows = yoho.get_yoho_windows(full_wav_array)
-    call_dataset = CallDataset(yoho_windows, yoho_labels)
+    call_dataset = CallDataset(yoho_windows, yoho_labels, sampling_rate=sampling_rates[0], mel_spectrogram= not raw_audio)
     return call_dataset
 
 

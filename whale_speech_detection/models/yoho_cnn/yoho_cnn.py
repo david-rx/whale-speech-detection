@@ -1,5 +1,4 @@
 
-from turtle import forward
 from torch.nn import Linear, Module, Conv1d, Conv2d, Sequential, CrossEntropyLoss, MaxPool2d, Softmax, BatchNorm2d, ReLU
 import torch
 
