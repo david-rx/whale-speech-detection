@@ -2,6 +2,8 @@
 
 A deep-learning detector for Antarctic Baleen Whale sounds.
 
+Objective is to first create a detector with immediate use for passive acoustic monitoring. Then, create a general foundation model using self-supervised learning on the larger unlabeled segment of whale call data.
+
 Uses data from "An open access dataset for developing automated detectors of Antarctic baleen whale sounds..." https://www.nature.com/articles/s41598-020-78995-8
 
 --- WORK IN PROGRESS ---
